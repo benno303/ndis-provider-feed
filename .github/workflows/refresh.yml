@@ -42,7 +42,7 @@ jobs:
       # zero bytes; a browser UA got the full file in ~90s). One download a week.
       - name: Download register
         run: |
-          curl -sSfL --retry 3 --max-time 600 \
+          curl -sSfL --http1.1 --retry 3 --retry-all-errors --max-time 600 \
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
             -o register.csv "$REGISTER_URL"
           ls -l register.csv
