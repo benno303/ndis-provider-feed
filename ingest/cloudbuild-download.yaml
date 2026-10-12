@@ -9,18 +9,21 @@
 #   gcloud builds submit --no-source --region=australia-southeast1 --config=ingest/cloudbuild-download.yaml
 
 steps:
-  - name: curlimages/curl
-    entrypoint: sh
+  # gcloud builder: runs as root (curlimages/curl can't write to /workspace)
+  # and ships a curl new enough for --retry-all-errors.
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
     args:
       - -c
       - |
+        set -euo pipefail
+        curl --version | head -1
         curl -sSfL --retry 3 --retry-all-errors --max-time 600 \
           -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
           -o /workspace/register.csv \
           https://www.ndiscommission.gov.au/provider-registration/find-registered-provider/download-csv
         ls -l /workspace/register.csv
-  - name: gcr.io/cloud-builders/gcloud
-    args: ["storage", "cp", "/workspace/register.csv", "gs://ndis-provider-feed-register/register.csv"]
+        gcloud storage cp /workspace/register.csv gs://ndis-provider-feed-register/register.csv
 
 timeout: 1800s
 options:
