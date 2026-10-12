@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.benno303/ndis-provider-feed",
+  "title": "NDIS Provider Feed",
+  "description": "Agent-readable search over the NDIS Provider Register (CC BY 4.0 AU) by location and service.",
+  "version": "1.0.1",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://ndis-provider-feed-125475360011.australia-southeast1.run.app/mcp"
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/benno303/ndis-provider-feed",
+    "source": "github"
+  }
+}

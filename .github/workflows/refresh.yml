@@ -1,0 +1,95 @@
+name: Weekly data refresh
+
+# Pulls the latest NDIS Provider Register, rebuilds the feed, checks it, and
+# redeploys the live server. If any check fails, nothing is deployed and the
+# last good data stays live (GitHub emails the repo owner on failure).
+
+on:
+  schedule:
+    - cron: "0 16 * * 0" # Sundays 16:00 UTC = Mondays 3am Sydney (AEDT), 2am (AEST)
+  workflow_dispatch:
+
+permissions:
+  contents: write # commit feed-status.json (also keeps the schedule alive: GitHub
+                  # disables scheduled workflows in repos with no activity for 60 days)
+  id-token: write # keyless auth to Google Cloud (Workload Identity Federation)
+
+concurrency: refresh
+
+env:
+  REGISTER_URL: https://www.ndiscommission.gov.au/provider-registration/find-registered-provider/download-csv
+  FEED: mcp_server/data/ndis_providers.jsonl
+  GCP_PROJECT: ndis-provider-feed
+  GCP_REGION: australia-southeast1
+  SERVICE: ndis-provider-feed
+  ENDPOINT: https://ndis-provider-feed-125475360011.australia-southeast1.run.app/mcp
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      # The Commission's server doesn't respond to non-browser user-agents (tested
+      # 2026-10-13: curl's default and a descriptive project UA both timed out with
+      # zero bytes; a browser UA got the full file in ~90s). One download a week.
+      - name: Download register
+        run: |
+          curl -sSfL --retry 3 --max-time 600 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+            -o register.csv "$REGISTER_URL"
+          ls -l register.csv
+
+      - name: Build feed
+        run: |
+          mkdir -p "$(dirname "$FEED")"
+          python ingest/ingest_ndis.py register.csv "$FEED"
+
+      - name: Validate feed
+        run: python ingest/validate_feed.py "$FEED"
+
+      - name: Test over the MCP protocol
+        run: python mcp_server/test_server.py "$FEED"
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/125475360011/locations/global/workloadIdentityPools/github/providers/ndis-provider-feed
+          service_account: github-deployer@ndis-provider-feed.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Deploy
+        run: |
+          gcloud run deploy "$SERVICE" --source . \
+            --project "$GCP_PROJECT" --region "$GCP_REGION" --quiet
+
+      - name: Smoke-test live endpoint
+        run: python mcp_server/test_http.py "$ENDPOINT"
+
+      - name: Record refresh
+        run: |
+          python - <<'EOF'
+          import json, collections
+          recs = [json.loads(l) for l in open("${{ env.FEED }}", encoding="utf-8")]
+          status = collections.Counter(r["registration_status"] for r in recs)
+          out = {
+              "retrieved_at": recs[0]["source"]["retrieved_at"],
+              "providers": len(recs),
+              "by_registration_status": dict(sorted(status.items())),
+          }
+          json.dump(out, open("feed-status.json", "w"), indent=2)
+          open("feed-status.json", "a").write("\n")
+          EOF
+          cat feed-status.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add feed-status.json
+          git commit -m "Weekly refresh: $(date -u +%Y-%m-%d)"
+          git push

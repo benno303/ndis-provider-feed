@@ -1,0 +1,13 @@
+# Files excluded from `gcloud run deploy --source .` uploads.
+# Deliberately does NOT include .gitignore: mcp_server/data/ is git-ignored but
+# must be uploaded, since the feed is bundled into the container at build time.
+.git
+.github/
+.gitignore
+.gcloudignore
+__pycache__/
+*.pyc
+.venv/
+*.csv
+*.md
+mcp_server/.publisher_tools/

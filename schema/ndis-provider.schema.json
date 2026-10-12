@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schema/ndis-provider.schema.json",
+  "title": "NDIS Provider",
+  "description": "One record per NDIS-registered provider, sourced from the NDIS Quality and Safeguards Commission Provider Register (CC BY 4.0 AU). Outlets are nested because the source register lists one row per outlet per provider.",
+  "type": "object",
+  "required": [
+    "provider_id",
+    "business_name",
+    "entity_type",
+    "registration_status",
+    "service_categories",
+    "outlets",
+    "source"
+  ],
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[0-9]{11}$",
+      "description": "ABN. Stable identifier, already public via ABN Lookup."
+    },
+    "business_name": {
+      "type": "string",
+      "description": "Trading name (source: 'Provider business name'). Always safe to display."
+    },
+    "legal_name": {
+      "type": ["string", "null"],
+      "description": "Registered legal name (source: 'Legal name'). Set to null when entity_type is 'individual' — see entity_type. Included as-is for organisations."
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": ["organisation", "individual"],
+      "description": "Derived, not in source data. 'individual' means the legal name is a sole trader's personal name (e.g. 'CITIZEN, JANE MARY'); legal_name is withheld in that case and business_name is used instead. This is a deliberate minimisation choice, not a source-data field: the register's CC BY licence permits reusing the legal name, but the product doesn't need a sole trader's personal name to do its job, so it isn't republished."
+    },
+    "registration_status": {
+      "type": "string",
+      "description": "Source: 'Registration status'. Only 'Approved' and 'Revoked' observed in the current register; kept as open string rather than a hardcoded enum in case other statuses (e.g. Suspended) appear in future extracts."
+    },
+    "registration_expiry": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "ISO 8601 date, parsed from source 'Period of registration in force until' (source format: 'DD Month YYYY')."
+    },
+    "service_categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Accommodation/Tenancy",
+          "Assist Access/Maintain Employ",
+          "Assist Personal Activities High",
+          "Assist Prod-Pers Care/Safety",
+          "Assist-Life Stage, Transition",
+          "Assist-Personal Activities",
+          "Assist-Travel/Transport",
+          "Assistance Animals",
+          "Assistive Equip-Recreation",
+          "Assistive Prod-Household Task",
+          "Behaviour Support",
+          "Comms & Info Equipment",
+          "Community Nursing Care",
+          "Custom Prosthetics",
+          "Daily Tasks/Shared Living",
+          "Development-Life Skills",
+          "Early Childhood Supports",
+          "Ex Phys Pers Training",
+          "Group/Centre Activities",
+          "Hearing Equipment",
+          "Hearing Services",
+          "Home Modification",
+          "Household Tasks",
+          "Innov Community Participation",
+          "Interpret/Translate",
+          "NDIS digital platform",
+          "Participate Community",
+          "Personal Mobility Equipment",
+          "Plan Management",
+          "Spec Support Employ",
+          "Specialised Disability Accommodation",
+          "Specialised Driver Training",
+          "Specialised Hearing Services",
+          "Support Coordination",
+          "Supported Independent Living",
+          "Therapeutic Supports",
+          "Vehicle modifications",
+          "Vision Equipment"
+        ],
+        "description": "NOTE: this is a working draft list built from the current extract. Regenerate this enum from a fresh CSV pull at build time rather than hardcoding it long-term — the Commission can add categories."
+      },
+      "description": "Parsed by splitting source 'Approved registration groups' on ';' and trimming."
+    },
+    "has_registration_conditions": {
+      "type": "boolean",
+      "description": "True if source 'Conditions of registration' is non-empty. The raw condition text itself is withheld from this public schema in v1 (often long, and encoding in the source file is unreliable — see notes) — treat as a Phase 2 verified/detail-tier field, not a Phase 0 field."
+    },
+    "website": {
+      "type": ["string", "null"],
+      "format": "uri"
+    },
+    "head_office": {
+      "type": "object",
+      "description": "Parsed from source 'Head office address', consistently formatted as 'SUBURB, STATE, POSTCODE, COUNTRY' in 63,569/63,573 rows verified. The remaining rows have no parseable address (source value was just 'AU') — suburb/state/postcode are null in that case rather than fabricated.",
+      "required": ["suburb", "state", "postcode", "country"],
+      "properties": {
+        "suburb": { "type": ["string", "null"] },
+        "state": {
+          "type": ["string", "null"],
+          "enum": ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT", null]
+        },
+        "postcode": { "type": ["string", "null"], "pattern": "^[0-9]{4}$" },
+        "country": { "type": "string", "const": "AU" }
+      }
+    },
+    "outlets": {
+      "type": "array",
+      "description": "One entry per outlet row in the source register for this ABN. Empty array if the provider has no outlet rows beyond head office.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": ["string", "null"] },
+          "address": { "type": ["string", "null"] },
+          "phone": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "last_verified": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp this record was last confirmed against its source (Phase 0: ingestion run time; Phase 1 onward: may reflect a provider's own self-service update). This is the seed of the Layer-3 trust story — always populate it, never fake it."
+    },
+    "source": {
+      "type": "object",
+      "required": ["register", "licence", "retrieved_at"],
+      "properties": {
+        "register": { "type": "string", "const": "NDIS Provider Register" },
+        "licence": { "type": "string", "const": "CC BY 4.0 AU" },
+        "retrieved_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
