@@ -1,0 +1,27 @@
+# Downloads the NDIS Provider Register from Google Cloud in Sydney and stages it
+# in a private bucket for the refresh workflow to pick up.
+#
+# Why not download directly in GitHub Actions: the Commission's server resets or
+# stalls connections from GitHub-hosted runners (tested 2026-10-13), while the
+# same request from Google Cloud australia-southeast1 succeeds.
+#
+# Run by .github/workflows/refresh.yml:
+#   gcloud builds submit --no-source --region=australia-southeast1 --config=ingest/cloudbuild-download.yaml
+
+steps:
+  - name: curlimages/curl
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        curl -sSfL --retry 3 --retry-all-errors --max-time 600 \
+          -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+          -o /workspace/register.csv \
+          https://www.ndiscommission.gov.au/provider-registration/find-registered-provider/download-csv
+        ls -l /workspace/register.csv
+  - name: gcr.io/cloud-builders/gcloud
+    args: ["storage", "cp", "/workspace/register.csv", "gs://ndis-provider-feed-register/register.csv"]
+
+timeout: 1800s
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -17,7 +17,6 @@ permissions:
 concurrency: refresh
 
 env:
-  REGISTER_URL: https://www.ndiscommission.gov.au/provider-registration/find-registered-provider/download-csv
   FEED: mcp_server/data/ndis_providers.jsonl
   GCP_PROJECT: ndis-provider-feed
   GCP_REGION: australia-southeast1
@@ -37,14 +36,22 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      # The Commission's server doesn't respond to non-browser user-agents (tested
-      # 2026-10-13: curl's default and a descriptive project UA both timed out with
-      # zero bytes; a browser UA got the full file in ~90s). One download a week.
-      - name: Download register
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/125475360011/locations/global/workloadIdentityPools/github/providers/ndis-provider-feed
+          service_account: github-deployer@ndis-provider-feed.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      # The Commission's server resets or stalls connections from GitHub-hosted
+      # runners, so the download runs in Google Cloud in Sydney instead (see
+      # ingest/cloudbuild-download.yaml) and is staged in a private bucket.
+      - name: Download register (via Cloud Build, Sydney)
         run: |
-          curl -sSfL --http1.1 --retry 3 --retry-all-errors --max-time 600 \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-            -o register.csv "$REGISTER_URL"
+          gcloud builds submit --no-source --suppress-logs \
+            --project "$GCP_PROJECT" --region "$GCP_REGION" \
+            --config ingest/cloudbuild-download.yaml
+          gcloud storage cp gs://ndis-provider-feed-register/register.csv register.csv
           ls -l register.csv
 
       - name: Build feed
@@ -57,13 +64,6 @@ jobs:
 
       - name: Test over the MCP protocol
         run: python mcp_server/test_server.py "$FEED"
-
-      - uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: projects/125475360011/locations/global/workloadIdentityPools/github/providers/ndis-provider-feed
-          service_account: github-deployer@ndis-provider-feed.iam.gserviceaccount.com
-
-      - uses: google-github-actions/setup-gcloud@v3
 
       - name: Deploy
         run: |
