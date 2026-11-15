@@ -1,8 +1,8 @@
 {
-  "retrieved_at": "2026-11-08T20:16:27Z",
-  "providers": 29574,
+  "retrieved_at": "2026-11-15T20:56:22Z",
+  "providers": 29573,
   "by_registration_status": {
-    "Approved": 27359,
+    "Approved": 27358,
     "Revoked": 2215
   }
 }
