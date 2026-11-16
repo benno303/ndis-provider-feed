@@ -101,7 +101,7 @@ Full field definitions are in [`schema/ndis-provider.schema.json`](schema/ndis-p
 ### Privacy
 
 - **Sole traders:** many are registered under their own personal name. For these records (`entity_type: "individual"`), the personal legal name is withheld and only the trading name is shown. The licence would allow republishing it, but finding a provider doesn't need it.
-- **What's logged:** each tool call logs a timestamp, the MCP session ID, the client's user-agent and the search parameters. Cloud Run's standard request logs also record IP addresses. Logs are used only to tell real usage apart from automated crawlers, and are deleted after 30 days.
+- **What's logged:** each tool call logs a timestamp, the MCP session ID, the client's user-agent, the client name and version it reports when connecting, and the search parameters. Cloud Run's standard request logs also record IP addresses. Logs are used only to tell real usage apart from automated crawlers, and are deleted after 30 days.
 
 ### Corrections
 
@@ -119,6 +119,8 @@ This is an early-stage project, built and run by Ben Armstrong ([@benno303](http
 I'm exploring whether there's a sustainable business in keeping provider information reliable for AI assistants. Anything paid would sit on top of this feed; the register feed itself stays free.
 
 Feedback, bug reports and "this would be useful if…" ideas are very welcome. Please [open an issue](https://github.com/benno303/ndis-provider-feed/issues).
+
+Using this feed? I'd like to hear what you're building: [ben@armstrongs.id.au](mailto:ben@armstrongs.id.au).
 
 ## Running it yourself
 

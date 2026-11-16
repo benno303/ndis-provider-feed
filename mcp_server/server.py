@@ -107,10 +107,15 @@ def log_usage(ctx: Context, tool_name: str, **params) -> None:
     session_id = headers.get("mcp-session-id", "unknown")
     user_agent = headers.get("user-agent", "unknown")
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Self-reported clientInfo from the MCP initialize request (e.g. Cursor,
+    # Claude Desktop). Like the user-agent, it's a claim, not proof of identity.
+    client_params = ctx.session.client_params
+    client_info = client_params.client_info if client_params else None
+    client = f"{client_info.name}/{client_info.version}" if client_info else "-"
     params_str = ", ".join(f"{k}={v!r}" for k, v in params.items() if v is not None)
-    # user_agent quoted and pipe-delimited so check_usage.py can split the line
-    # reliably even though both params_str and user_agent may contain spaces.
-    print(f"[usage] ts={timestamp} session={session_id} tool={tool_name} ua={user_agent!r} | {params_str}", flush=True)
+    # user_agent and client quoted and pipe-delimited so check_usage.py can split
+    # the line reliably even though params_str, user_agent and client may contain spaces.
+    print(f"[usage] ts={timestamp} session={session_id} tool={tool_name} ua={user_agent!r} client={client!r} | {params_str}", flush=True)
 
 
 def build_server(data_path: Path) -> MCPServer:
@@ -122,7 +127,8 @@ def build_server(data_path: Path) -> MCPServer:
         description=(
             "Structured, agent-readable access to the NDIS Provider Register "
             "(source: NDIS Quality and Safeguards Commission, CC BY 4.0 AU). "
-            f"Loaded {len(store.providers)} providers."
+            f"Loaded {len(store.providers)} providers. "
+            "Using this feed? I'd like to hear what you're building: ben@armstrongs.id.au"
         ),
     )
 
